@@ -1,0 +1,136 @@
+A platform to discover, collect, clean, dedupe, categorize, and analyze public educational programs (libraries, gov portals, event sites).
+Backend API (FastAPI) + ETL with modular adapters + Postgres/SQLite via SQLAlchemy + Streamlit dashboard.
+Privacy-aware (robots/TOS, provenance, snapshots), explainable tagging, and ops tooling (Celery, Redis, Docker).
+Key Capabilities
+
+ETL pipeline: robots-aware discovery → fetch (API/HTML) → parse → normalization → dedupe → tagging → upsert → snapshots.
+Adapters: Eventbrite (API), Meetup (API), and a library site (HTML) with Playwright fallback for JS pages.
+Dedupe: Hash-based dedupe and near-duplicate suppression (TF-IDF + cosine).
+NLP/tagging: Keyword rules for Language & Literature and Early Childhood Education, with explainability (reason_tags).
+Security & auth: JWT login, bcrypt passwords, RBAC (admin-gated ingest), rate limiting, CORS, CSP headers.
+Caching: Simple cache for GET /programs (Redis or in-memory fallback).
+Scheduling: Celery worker + beat (nightly ingest at 03:00).
+Provenance: Snapshots of HTML excerpts; unified diffs when content changes; audit log of admin actions.
+Dashboard: Search & Filter, Map View (geocoded), Insights (stats), Data Export (CSV/JSON), Admin & Audit (provenance/diffs and ETL hint).
+Project Structure (High-Level)
+
+adapters/
+base.py: SourceAdapter + ProgramRecord interface
+eventbrite.py, meetup.py: API-based adapters
+library_vic.py: HTML adapter with robots checks and Playwright fallback
+api/
+main.py: FastAPI app, routes; caching on /programs; provenance/diff endpoints
+auth.py: POST /auth/login; create JWTs; logs to audit
+deps.py: auth dependencies (JWT parsing, admin require)
+ratelimit.py: Redis rate-limiter with in-memory fallback
+cache.py: Redis JSON cache with in-memory fallback
+core/
+settings.py: .env-backed settings and feature flags
+db.py: SQLAlchemy engine/session + SQLite auto-init
+etl.py: ETL orchestration; upsert; Celery worker + nightly beat
+nlp.py: normalization, keyword tagging, dedupe hash
+dedupe.py: TF-IDF + cosine near-dup detection helpers
+geo.py: Nominatim geocoding helper (flagged)
+db/
+models.py: SQLAlchemy models (programs, snapshots, runs, audit_log, users, etc.)
+migrations/: Alembic bootstrap and initial migration
+dashboard/
+app.py: Streamlit UI; calls backend API only; map + export + provenance/diff panel; persistent footer
+scripts/
+start_api.py: Run migrations, seed demo data and admin (from env), start Uvicorn
+ingest_all.py: Run ETL once
+migrate_seed.py: Import from legacy SQLite if present
+tests/
+Unit/integration tests covering adapters, ETL, auth, dedupe, rate limit/cache, Celery beat schedule, Playwright flag, provenance/diffs
+Root docs/configs:
+README.md, ARCHITECTURE.md, PRIVACY_COMPLIANCE.md, TESTING.md, .env.example, docker-compose.yml, Dockerfile, Makefile, alembic.ini
+How Data Flows
+
+Adapters implement:
+discover(): return IDs/URLs to fetch
+fetch_raw(): HTTP/API request; robots.txt respect (HTML); requests-cache; retries/backoff implied
+parse(): yield ProgramRecord objects with normalized fields and provenance
+ETL:
+Batch-level near-duplicate suppression using TF-IDF (keeps first in cluster)
+DB-level dedupe via hash (title+date+city) and near-dup check over recent items
+Upsert programs; if content changed, create a new Snapshot (excerpt + checksum) and mark status “updated”
+Optional geocode when inserting (flagged)
+API:
+GET /programs with filters, paging, cached results
+GET /programs/{id}, /stats
+GET /programs/{id}/snapshots and /programs/{id}/diff (unified diff of last two excerpts)
+POST /ingest/run (admin only) to trigger ETL now
+POST /auth/login (and alias /login) to obtain JWT
+POST /seed_admin creates admin user from env
+Dashboard:
+Renders search results with expandable rows, tags/reasons, links, and filters
+Map View plots items with lat/lon
+Insights shows counts
+Export produces CSV/JSON of the current filter set
+Admin & Audit: sample cURL for ETL trigger and Program ID-based provenance/diff viewer
+Footer: “all rights reserved Mohamed Imaad Muhinudeen and kavin nathakumar”
+Security & Privacy
+
+Secrets loaded from .env; no hardcoded API keys
+JWT-based auth; bcrypt password hashing; admin-gated endpoints; audit logging of actions
+Basic CSP headers; input escaping in UI
+Respect robots.txt and record robots_ok + crawl delay in provenance
+Snapshots store minimal excerpts; takedown-ready
+Feature Flags and Env
+
+.env.example provides:
+DB_URL/DB_URL_SQLITE, REDIS_URL
+EVENTBRITE_TOKEN, MEETUP_TOKEN, SERPAPI_KEY (optional)
+ENABLE_PLAYWRIGHT=true/false (off by default)
+ENABLE_EMBEDDINGS (not used now), GEOCODING_ENABLED=true/false (off by default)
+RATE_LIMIT_PER_MIN, CACHE_TTL, ADMIN_USERNAME, ADMIN_PASSWORD, NEARDUP_THRESHOLD
+settings resolved in core/settings.py
+What I Implemented
+
+Full scaffold aligned with your Stage-2 brief (backend + ETL + adapters + dashboard + ops, from scratch; no reuse of old code)
+Users table + bcrypt + JWT + RBAC; admin-gated ingest; audit log entries
+Redis rate limiting (per-IP/min) with in-memory fallback; cache for /programs results
+Celery worker and Celery beat scheduling nightly ingest at 03:00
+Near-duplicate detection using TF-IDF + cosine at batch-level and recent-window DB-level
+Geocoding helper + dashboard map + CSV/JSON export; feature-flagged geocoding
+Playwright fallback flag for HTML adapter (Vic library)
+Provenance snapshots and unified text diffs + API routes and UI panel
+Tests covering adapters, ETL, auth, rate-limit/cache, Celery beat schedule, near-dups, geocoding, Playwright fallback, and provenance/diffs
+Docker + compose services; .env template; Makefile; docs
+How To Run (Local, no Docker)
+
+Install Python 3.11
+Copy .env.example to .env and set at least:
+ADMIN_PASSWORD=<choose-strong-password>
+GEOCODING_ENABLED=false (for CI/offline), ENABLE_PLAYWRIGHT=false unless installed
+Install deps: python -m pip install -r requirements.txt
+Start API: python scripts/start_api.py
+Seed admin: POST /seed_admin (only first run, then harmless)
+Login: POST /login with {"username":"admin","password":"<from .env>"} → returns JWT
+Start dashboard: streamlit run dashboard/app.py --server.port 8501
+Trigger ETL (admin-only): POST /ingest/run with Authorization: Bearer <JWT>
+Optional: Celery
+Worker: celery -A core.etl worker --loglevel=INFO
+Beat: celery -A core.etl beat --loglevel=INFO
+Tests: pytest -q
+How To Run (Docker)
+
+Copy .env.example to .env
+docker compose up --build
+API at http://localhost:8000; dashboard at http://localhost:8501
+Services: api, db (Postgres), redis, worker (Celery), beat (nightly), dashboard
+Key Files To Skim
+
+api/main.py
+adapters/base.py, adapters/library_vic.py, adapters/eventbrite.py, adapters/meetup.py
+core/etl.py, core/dedupe.py, core/nlp.py, core/geo.py, core/settings.py
+db/models.py, db/migrations/versions/0001_initial.py
+dashboard/app.py
+README.md, TESTING.md, PRIVACY_COMPLIANCE.md, ARCHITECTURE.md
+Notes For The Recipient
+
+You can implement additional source adapters by subclassing SourceAdapter and wiring into core/etl.py.
+Enable geocoding or Playwright via .env feature flags.
+For Eventbrite/Meetup, add API tokens in .env to make live calls; otherwise adapters will 401 and the system still functions with seeded demo data.
+The rate limiter gracefully falls back to in-memory if Redis is not available.
+The dashboard talks to the API only; no direct DB access, improving security and portability.

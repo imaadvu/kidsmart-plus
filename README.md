@@ -2,11 +2,17 @@ KidsSmart+ — Educational Program Intelligence Platform
 
 KidsSmart+ discovers, collects, cleans, categorizes, and analyzes public educational programs (gov/library/event sites). It provides a FastAPI backend, ETL pipeline with modular adapters, a Streamlit dashboard, and ops tooling.
 
+📋 **Quick Reference:** See `QUICK_REFERENCE.txt` or `CURRENT_STATUS.md` for Docker setup help.
+
 Quick Start (Docker)
 - Copy `.env.example` to `.env` and fill secrets.
 - Run: `docker compose up --build`
 - API: `http://localhost:8000` (OpenAPI docs at `/docs`)
 - Dashboard (Streamlit): `http://localhost:8501`
+
+**Troubleshooting:**
+- **Build timeout?** See `DOCKER_BUILD_FIXES.md`
+- **Image conflict?** See `DOCKER_IMAGE_CONFLICT_FIX.md` or run `.\rebuild.ps1`
 
 One-liner: `docker compose --profile prod up -d` (seeds DB and runs first ETL).
 

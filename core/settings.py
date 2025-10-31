@@ -1,10 +1,12 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
-from typing import List
+from typing import List, Union
 import os
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    
     app_env: str = os.getenv("APP_ENV", "development")
     secret_key: str = "change-me"
     jwt_algo: str = "HS256"
@@ -23,7 +25,7 @@ class Settings(BaseSettings):
     enable_playwright: bool = False
     enable_embeddings: bool = False
 
-    allowed_origins: List[str] = ["http://localhost:3000", "http://localhost:8501"]
+    allowed_origins: Union[List[str], str] = ["http://localhost:3000", "http://localhost:8501"]
 
     rate_limit_per_min: int = 120
     cache_ttl: int = int(os.getenv("CACHE_TTL", 60))

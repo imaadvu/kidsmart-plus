@@ -3,7 +3,7 @@ import streamlit as st
 import httpx
 from datetime import datetime
 
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")
+API_BASE = os.getenv("API_BASE", "http://api:8000")
 
 
 def api_get(path, params=None):

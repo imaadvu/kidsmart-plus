@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from core.settings import settings
 from core.db import get_db
 from db.models import Program, Run, Source
@@ -97,7 +98,7 @@ def get_program(pid: str, db: Session = Depends(get_db)):
 @app.get("/stats")
 def stats(db: Session = Depends(get_db)):
     count = db.query(Program).count()
-    rows = db.execute("SELECT COALESCE(category,'Uncategorized') as c, COUNT(*) FROM programs GROUP BY c").all()
+    rows = db.execute(text("SELECT COALESCE(category,'Uncategorized') as c, COUNT(*) FROM programs GROUP BY c")).all()
     by_category = {c: n for c, n in rows}
     return {"count": count, "by_category": by_category}
 

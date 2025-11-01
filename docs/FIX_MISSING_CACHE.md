@@ -227,10 +227,10 @@ Edit Dockerfile and add before the general `COPY . /app`:
 
 ```dockerfile
 # Explicitly copy api directory first
-COPY api/ /app/api/
+COPY ../api /app/api/
 
 # Then copy everything else
-COPY . /app
+COPY .. /app
 ```
 
 ### Nuclear Option - Copy File Directly into Running Container

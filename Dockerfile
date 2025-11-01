@@ -28,6 +28,10 @@ RUN pip install --timeout=1000 --retries=5 -r /app/requirements-playwright.txt
 
 COPY . /app
 
+# Verify critical files are present
+RUN test -f /app/api/cache.py || (echo "ERROR: api/cache.py is missing!" && exit 1)
+RUN test -f /app/api/main.py || (echo "ERROR: api/main.py is missing!" && exit 1)
+
 EXPOSE 8000 8501
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

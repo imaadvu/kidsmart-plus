@@ -33,7 +33,9 @@ def main():
             # Ensure admin user exists
             admin = db.query(User).filter(User.username == settings.admin_username).one_or_none()
             if not admin:
-                db.add(User(username=settings.admin_username, hashed_password=bcrypt.hash(settings.admin_password), role="admin"))
+                # Truncate password to 72 bytes for bcrypt compatibility
+                admin_pwd = settings.admin_password[:72]
+                db.add(User(username=settings.admin_username, hashed_password=bcrypt.hash(admin_pwd), role="admin"))
                 db.commit()
                 print("Created admin user from env")
     except Exception as e:
